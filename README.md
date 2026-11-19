@@ -13,7 +13,8 @@
 | 파일명 | 설명 |
 |---|---|
 | `extract_items.py` | 순수 Python 3 표준 라이브러리 기반 C# 스키마 동적 분석 및 `.asset` 추출/검증 CLI |
-| `items.json` | 추출 및 검증 완료된 아이템 데이터 (`categories`, `classSchemas`, `enumSchemas`, `items`) |
+| `index.html` / `app.js` / `styles.css` | 동적 스키마(`categories`, `classSchemas`) 기반 정적 웹 전산 뷰어 (`lister` MVP) |
+| `items.json` | 추출 및 검증 완료된 아이템 데이터 (`.gitignore` 제외 대상, CI/로컬 생성) |
 | `items.schema.json` | JSON Schema (Draft 2020-12) 검증 정의 파일 |
 
 ## 실행 환경 및 사용법
@@ -30,6 +31,9 @@ python total-darkwoods/extract_items.py --project-root DarkWood2/ForestOfSteel -
 
 # 3. 기존 items.json 무결성 검증만 수행
 python total-darkwoods/extract_items.py --validate-only
+
+# 4. 정적 웹 전산(lister) 로컬 실행 (http://localhost:8000)
+python -m http.server 8000 --directory total-darkwoods
 ```
 
 ## CI/CD 연동 흐름
