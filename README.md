@@ -16,7 +16,10 @@
 | `items.json` | 추출 및 검증 완료된 아이템 데이터 (`categories`, `classSchemas`, `enumSchemas`, `items`) |
 | `items.schema.json` | JSON Schema (Draft 2020-12) 검증 정의 파일 |
 
-## 사용법 (Python 3.9+, 외부 패키지 불필요)
+## 실행 환경 및 사용법
+
+- **Python 버전**: `Python 3.10.9` (표준 라이브러리만 사용, 외부 패키지 설치 불필요)
+- **스키마 버전**: `1.1.0`
 
 ```bash
 # 1. 기본 추출 및 자동 검증
