@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Total Darkwoods — Item Lister</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand-group">
+      <div class="brand-badge">LISTER</div>
+      <div>
+        <h1 class="app-title" id="projectTitle">DarkWood2 / ForestOfSteel</h1>
+        <p class="app-subtitle">
+          <span id="sourcePathLabel">Assets/_Game/05.RuntimeData/Resources/Items</span>
+          <span class="divider">·</span>
+          <span id="schemaVersionBadge" class="meta-pill">Schema v1.1.0</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button type="button" id="btnSchemaModal" class="btn btn-secondary" title="C# 동적 클래스 및 Enum 스키마 조회">
+        동적 스키마 명세 (<span id="classCountLabel">0</span> 클래스)
+      </button>
+      <label for="fileInput" class="btn btn-secondary" title="로컬 items.json 파일 직접 불러오기">
+        JSON 파일 열기
+        <input type="file" id="fileInput" accept=".json,application/json" hidden />
+      </label>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <!-- 상단 요약 및 동적 대분류 탭 -->
+    <section class="category-bar" aria-label="아이템 대분류 필터">
+      <div id="categoryTabs" class="category-tabs"></div>
+    </section>
+
+    <!-- 검색 / 세부 필터 / 정렬 컨트롤 바 -->
+    <section class="toolbar" aria-label="검색 및 필터 도구모음">
+      <div class="search-box">
+        <input
+          type="search"
+          id="searchInput"
+          placeholder="ID, 아이템명, 에셋명, 설명, 스탯, 조합 재료 검색... ( / 키)"
+          autocomplete="off"
+        />
+        <button type="button" id="btnClearSearch" class="btn-icon" title="검색어 지우기" hidden>&times;</button>
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-item">
+          <span>C# 클래스</span>
+          <select id="classFilter">
+            <option value="ALL">전체 클래스</option>
+          </select>
+        </label>
+
+        <label class="filter-item">
+          <span>제작 스테이션</span>
+          <select id="stationFilter">
+            <option value="ALL">전체 (제한 없음)</option>
+          </select>
+        </label>
+
+        <label class="filter-item">
+          <span>조합 관계</span>
+          <select id="craftingFilter">
+            <option value="ALL">전체 아이템</option>
+            <option value="CRAFTABLE">제작 가능 (레시피 보유)</option>
+            <option value="INGREDIENT">타 아이템의 재료로 사용됨</option>
+            <option value="STANDALONE">조합 무관 (단독 아이템)</option>
+          </select>
+        </label>
+
+        <label class="filter-item toggle-label" title="선택된 대분류/클래스의 고유 속성(attributes)을 테이블 컬럼으로 자동 펼치기">
+          <input type="checkbox" id="toggleDynamicCols" checked />
+          <span>동적 속성 컬럼 표시</span>
+        </label>
+
+        <button type="button" id="btnResetFilters" class="btn btn-ghost">필터 초기화</button>
+      </div>
+    </section>
+
+    <!-- 상태 표시줄 -->
+    <section class="status-bar">
+      <div class="status-count">
+        표시 중 <strong id="visibleCount">0</strong> / 전체 <span id="totalCount">0</span>종
+      </div>
+      <div id="activeFilterChips" class="active-chips"></div>
+    </section>
+
+    <!-- 에러 / 로컬 파일 폴백 배너 -->
+    <section id="loadNotice" class="load-notice" hidden>
+      <div class="notice-card">
+        <h2><code>items.json</code> 로드 안내</h2>
+        <p id="loadNoticeText">
+          브라우저 보안 정책(CORS)으로 인해 <code>file://</code> 경로에서 <code>items.json</code> 자동 읽기가 차단되었을 수 있습니다.
+          로컬 웹 서버(<code>python -m http.server 8000</code>)로 실행하거나, 아래 버튼으로 <code>items.json</code>을 선택해 주세요.
+        </p>
+        <div class="notice-actions">
+          <label for="fileInputFallback" class="btn btn-primary">
+            items.json 파일 선택하기
+            <input type="file" id="fileInputFallback" accept=".json,application/json" hidden />
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- 메인 테이블 & 우측 상세 패널 레이아웃 -->
+    <div class="workspace-grid" id="workspaceGrid">
+      <section class="table-container" aria-label="아이템 데이터 테이블">
+        <table class="item-table" id="itemTable">
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+        <div id="emptyState" class="empty-state" hidden>
+          조건에 일치하는 아이템이 없습니다.
+        </div>
+      </section>
+
+      <!-- 우측 상세 인스펙터 패널 -->
+      <aside class="detail-panel" id="detailPanel" aria-label="아이템 상세 정보" hidden>
+        <div class="detail-header">
+          <div>
+            <div class="detail-badges" id="detailBadges"></div>
+            <h2 class="detail-title" id="detailTitle">-</h2>
+            <p class="detail-asset" id="detailAssetName">-</p>
+          </div>
+          <button type="button" id="btnCloseDetail" class="btn-icon" title="상세 패널 닫기 (Esc)">&times;</button>
+        </div>
+        <div class="detail-body" id="detailBody"></div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- 동적 C# 클래스 & Enum 스키마 모달 -->
+  <div class="modal-backdrop" id="schemaModal" hidden>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="schemaModalTitle">
+      <div class="modal-header">
+        <h2 id="schemaModalTitle">동적 추출 C# 클래스 및 Enum 스키마</h2>
+        <button type="button" id="btnCloseSchemaModal" class="btn-icon">&times;</button>
+      </div>
+      <div class="modal-body" id="schemaModalBody"></div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
