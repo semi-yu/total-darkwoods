@@ -14,10 +14,9 @@
 |---|---|
 | `extract_items.py` | 순수 Python 3 표준 라이브러리 기반 C# 스키마 동적 분석 및 `.asset` 추출/검증 CLI |
 | `extract_icons.py` | 원본 텍스처 및 아틀라스(`rect`) 크롭 기반 개별 아이콘 PNG(`icons/*.png`) 추출 CLI |
+| `functions/items.json.js` | Cloudflare Pages Functions 기반 비공개 R2 버킷(`ICONS_BUCKET`) `items.json` 프록시 |
 | `functions/icons/[name].js` | Cloudflare Pages Functions 기반 비공개 R2 버킷(`ICONS_BUCKET`) 아이콘 프록시 |
 | `index.html` / `app.js` / `styles.css` | 동적 스키마(`categories`, `classSchemas`) 및 아이콘 렌더링 기반 정적 웹 전산 뷰어 |
-| `items.json` | 추출 및 검증 완료된 아이템 데이터 (`.gitignore` 제외 대상, CI/로컬 생성) |
-| `items.schema.json` | JSON Schema (Draft 2020-12) 검증 정의 파일 |
 
 ## 실행 환경 및 사용법
 
@@ -25,10 +24,10 @@
 - **스키마 버전**: `1.1.0`
 
 ```bash
-# 1. 아이템 JSON 추출 및 자동 검증
+# 1. 아이템 JSON 추출 및 자동 검증 (로컬 items.json 생성, Git 추적 제외)
 python total-darkwoods/extract_items.py
 
-# 2. 아틀라스 크롭 및 개별 아이콘 PNG 추출 (total-darkwoods/icons/)
+# 2. 아틀라스 크롭 및 개별 아이콘 PNG 추출 (로컬 total-darkwoods/icons/, Git 추적 제외)
 python total-darkwoods/extract_icons.py
 
 # 3. 정적 웹 전산(lister) 로컬 실행 (http://localhost:8000)
@@ -37,6 +36,6 @@ python -m http.server 8000 --directory total-darkwoods
 
 ## CI/CD 연동 흐름
 
-1. `DarkWood2` 메인 레포 업데이트 시 CI가 본 레포(`total-darkwoods`)를 함께 체크아웃합니다.
-2. `extract_items.py`를 실행해 최신 `items.json`을 생성 및 검증합니다.
-3. 변경된 `items.json`을 본 레포에 자동 커밋/푸시하여 정적 웹 전산을 갱신합니다.
+1. `DarkWood2` 메인 레포 업데이트 시 CI가 본 레포(`total-darkwoods`)의 추출 스크립트를 가져옵니다.
+2. `extract_items.py`와 `extract_icons.py`를 실행해 최신 `items.json`과 `icons/*.png`를 생성 및 검증합니다.
+3. 생성된 `items.json`과 `icons/*.png`를 비공개 Cloudflare R2 버킷에 직접 업로드하며, 웹 전산은 Pages Functions 프록시를 통해 R2에서 데이터를 불러옵니다.
