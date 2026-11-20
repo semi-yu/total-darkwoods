@@ -62,9 +62,42 @@
       .replace(/'/g, "&#39;");
   }
 
+  /**
+   * 아이콘 경로(iconKey)와 버전 해시(?v=<hash>)를 조합하여 이미지 URL을 반환합니다.
+   * Cloudflare Pages에서는 functions/icons/[name].js 프록시가 /icons/<name> 요청을 받아
+   * R2 버킷(ICONS_BUCKET)에서 이미지를 반환하며, 로컬 웹 서버에서는 ./icons/<name>을 직접 읽습니다.
+   */
+  function getIconUrl(spriteRef) {
+    if (!spriteRef || !spriteRef.iconKey) return null;
+    const versionHash =
+      (state.db && (state.db.commitHash || state.db.iconVersion)) ||
+      (spriteRef.spriteId ? String(spriteRef.spriteId).slice(0, 8) : null) ||
+      (spriteRef.guid ? String(spriteRef.guid).slice(0, 8) : null) ||
+      (state.db && state.db.schemaVersion) ||
+      "1";
+    const cleanKey = String(spriteRef.iconKey).replace(/^\/+/, "");
+    return `./${cleanKey}?v=${encodeURIComponent(versionHash)}`;
+  }
+
+  function renderIconThumbHtml(spriteRef, altText, boxClass = "icon-thumb-box") {
+    const url = getIconUrl(spriteRef);
+    const label = escapeHtml(altText || (spriteRef && spriteRef.spriteName) || "-");
+    if (!url) {
+      return `<div class="${boxClass}"><span class="icon-fallback">-</span></div>`;
+    }
+    return `<div class="${boxClass}" title="${escapeHtml((spriteRef && spriteRef.spriteName) || altText || "")}">
+      <img
+        src="${escapeHtml(url)}"
+        alt="${label}"
+        loading="lazy"
+        onerror="this.style.display='none';this.nextElementSibling.hidden=false;"
+      />
+      <span class="icon-fallback" hidden>IMG</span>
+    </div>`;
+  }
+
   function formatAttributeValue(val, attrObj, fieldName) {
     if (val === null || val === undefined) return "-";
-    // 한국어 보조 라벨(<fieldName>Ko)이 있으면 함께 표시
     const koKey = `${fieldName}Ko`;
     if (attrObj && attrObj[koKey] && typeof val === "string") {
       return `${attrObj[koKey]} (${val})`;
@@ -79,6 +112,20 @@
       return JSON.stringify(val);
     }
     return String(val);
+  }
+
+  function formatAttributeHtml(val, attrObj, fieldName) {
+    if (val && typeof val === "object" && "iconKey" in val && val.iconKey) {
+      const url = getIconUrl(val);
+      const name = escapeHtml(val.spriteName || val.iconKey);
+      if (url) {
+        return `<span class="attr-sprite-inline">
+          <img src="${escapeHtml(url)}" alt="${name}" loading="lazy" onerror="this.style.display='none'" />
+          <span>${name}</span>
+        </span>`;
+      }
+    }
+    return escapeHtml(formatAttributeValue(val, attrObj, fieldName));
   }
 
   // 현재 필터 상태에서 표시할 동적 속성(attributes) 필드 스키마 계산
@@ -178,7 +225,6 @@
       }),
     ].join("");
 
-    // 제작 스테이션 목록도 레시피/Enum에서 동적 수집
     const stationMap = new Map();
     for (const item of db.items || []) {
       const craftedBy = (item.crafting && item.crafting.craftedBy) || [];
@@ -286,6 +332,7 @@
   function renderTableHeader(dynamicFields) {
     const baseCols = [
       { key: "itemId", label: "ID" },
+      { key: null, label: "아이콘" },
       { key: "displayName", label: "아이템명 / 에셋" },
       { key: "itemTypeKo", label: "대분류" },
       { key: "scriptClass", label: "C# 클래스" },
@@ -296,6 +343,9 @@
     ];
 
     const renderTh = (colKey, label, isDynamic = false, tooltip = null) => {
+      if (!colKey) {
+        return `<th class="col-icon">${escapeHtml(label)}</th>`;
+      }
       const isSorted = state.sortKey === colKey;
       const arrow = isSorted ? (state.sortOrder === "asc" ? "▲" : "▼") : "";
       const cls = ["sortable", isDynamic ? "dynamic-col-header" : ""].filter(Boolean).join(" ");
@@ -338,7 +388,7 @@
 
       const dynamicCells = dynamicFields.map((f) => {
         const rawVal = item.attributes ? item.attributes[f.name] : undefined;
-        return `<td class="dynamic-col-cell">${escapeHtml(formatAttributeValue(rawVal, item.attributes, f.name))}</td>`;
+        return `<td class="dynamic-col-cell">${formatAttributeHtml(rawVal, item.attributes, f.name)}</td>`;
       });
 
       const descCell =
@@ -348,6 +398,7 @@
 
       return `<tr data-item-id="${item.itemId}" class="${isSelected}">
         <td class="col-id">#${item.itemId}</td>
+        <td class="col-icon">${renderIconThumbHtml(item.icon, item.displayName)}</td>
         <td>
           <div class="item-name-cell">
             <span class="item-display-name">${escapeHtml(item.displayName)}</span>
@@ -414,12 +465,21 @@
       );
     }
     els.detailBadges.innerHTML = badges.join("");
-    els.detailTitle.textContent = item.displayName;
-    els.detailAssetName.textContent = `${item.assetName} (${item.assetGuid})`;
+    els.detailTitle.innerHTML = `
+      <div class="detail-title-row">
+        ${renderIconThumbHtml(item.icon, item.displayName, "detail-icon-box")}
+        <div>
+          <div>${escapeHtml(item.displayName)}</div>
+          <div class="detail-asset">${escapeHtml(item.assetName)} (${escapeHtml(item.assetGuid)})</div>
+        </div>
+      </div>
+    `;
+    els.detailAssetName.textContent = "";
 
     const sections = [];
 
     // 1. 기본 정보
+    const iconUrl = getIconUrl(item.icon);
     sections.push(`
       <div class="detail-section">
         <div class="detail-section-title">기본 정보 (ItemData)</div>
@@ -432,7 +492,9 @@
         <div class="kv-grid">
           <span class="kv-key">Max Stack</span><span class="kv-val">${item.maxStack}</span>
           <span class="kv-key">Asset Path</span><span class="kv-val">${escapeHtml(item.assetPath)}</span>
-          <span class="kv-key">Icon Sprite</span><span class="kv-val">${escapeHtml(item.icon ? `${item.icon.spriteName} (${item.icon.texturePath})` : "-")}</span>
+          <span class="kv-key">Icon Key</span><span class="kv-val">${escapeHtml(item.icon ? item.icon.iconKey : "-")}</span>
+          <span class="kv-key">Icon URL</span><span class="kv-val">${escapeHtml(iconUrl || "-")}</span>
+          <span class="kv-key">Sprite Source</span><span class="kv-val">${escapeHtml(item.icon ? `${item.icon.spriteName} [${item.icon.spriteMode}] (${item.icon.texturePath})` : "-")}</span>
         </div>
       </div>
     `);
@@ -455,7 +517,7 @@
         const typeLabel = meta ? ` (${meta.csharpType})` : "";
         const tooltip = meta && meta.tooltip ? `title="${escapeHtml(meta.tooltip)}"` : "";
         return `<span class="kv-key" ${tooltip}>${escapeHtml(k)}${escapeHtml(typeLabel)}</span>
-                <span class="kv-val">${escapeHtml(formatAttributeValue(attrs[k], attrs, k))}</span>`;
+                <span class="kv-val">${formatAttributeHtml(attrs[k], attrs, k)}</span>`;
       });
 
       sections.push(`
@@ -724,7 +786,6 @@
   els.fileInput.addEventListener("change", (e) => handleFileUpload(e.target.files[0]));
   els.fileInputFallback.addEventListener("change", (e) => handleFileUpload(e.target.files[0]));
 
-  // 초기 items.json 자동 fetch
   async function bootstrap() {
     try {
       const res = await fetch("./items.json", { cache: "no-store" });
