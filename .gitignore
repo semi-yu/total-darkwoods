@@ -1,3 +1,4 @@
 *.json
+/icons/
 __pycache__/
 *.pyc
