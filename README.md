@@ -13,26 +13,25 @@
 | 파일명 | 설명 |
 |---|---|
 | `extract_items.py` | 순수 Python 3 표준 라이브러리 기반 C# 스키마 동적 분석 및 `.asset` 추출/검증 CLI |
-| `index.html` / `app.js` / `styles.css` | 동적 스키마(`categories`, `classSchemas`) 기반 정적 웹 전산 뷰어 (`lister` MVP) |
+| `extract_icons.py` | 원본 텍스처 및 아틀라스(`rect`) 크롭 기반 개별 아이콘 PNG(`icons/*.png`) 추출 CLI |
+| `functions/icons/[name].js` | Cloudflare Pages Functions 기반 비공개 R2 버킷(`ICONS_BUCKET`) 아이콘 프록시 |
+| `index.html` / `app.js` / `styles.css` | 동적 스키마(`categories`, `classSchemas`) 및 아이콘 렌더링 기반 정적 웹 전산 뷰어 |
 | `items.json` | 추출 및 검증 완료된 아이템 데이터 (`.gitignore` 제외 대상, CI/로컬 생성) |
 | `items.schema.json` | JSON Schema (Draft 2020-12) 검증 정의 파일 |
 
 ## 실행 환경 및 사용법
 
-- **Python 버전**: `Python 3.10.9` (표준 라이브러리만 사용, 외부 패키지 설치 불필요)
+- **Python 버전**: `Python 3.10.9` (`extract_items.py`: 표준 라이브러리 / `extract_icons.py`: `Pillow`)
 - **스키마 버전**: `1.1.0`
 
 ```bash
-# 1. 기본 추출 및 자동 검증
+# 1. 아이템 JSON 추출 및 자동 검증
 python total-darkwoods/extract_items.py
 
-# 2. CI/CD 환경에서 프로젝트 경로 및 출력 경로 지정
-python total-darkwoods/extract_items.py --project-root DarkWood2/ForestOfSteel -o total-darkwoods/items.json
+# 2. 아틀라스 크롭 및 개별 아이콘 PNG 추출 (total-darkwoods/icons/)
+python total-darkwoods/extract_icons.py
 
-# 3. 기존 items.json 무결성 검증만 수행
-python total-darkwoods/extract_items.py --validate-only
-
-# 4. 정적 웹 전산(lister) 로컬 실행 (http://localhost:8000)
+# 3. 정적 웹 전산(lister) 로컬 실행 (http://localhost:8000)
 python -m http.server 8000 --directory total-darkwoods
 ```
 
