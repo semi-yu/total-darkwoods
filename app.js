@@ -787,14 +787,54 @@
   els.fileInputFallback.addEventListener("change", (e) => handleFileUpload(e.target.files[0]));
 
   async function bootstrap() {
+    const errors = [];
+
+    // 1. Cloudflare Pages Functions R2 프록시 (/api/items) 우선 시도
     try {
-      const res = await fetch("./items.json", { cache: "no-store" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      initializeDatabase(data);
+      const apiRes = await fetch("./api/items", { cache: "no-store" });
+      const contentType = apiRes.headers.get("content-type") || "";
+      if (apiRes.ok && contentType.includes("application/json")) {
+        const data = await apiRes.json();
+        if (data && Array.isArray(data.items)) {
+          initializeDatabase(data);
+          return;
+        }
+      } else if (!apiRes.ok) {
+        let detail = `HTTP ${apiRes.status}`;
+        if (contentType.includes("application/json")) {
+          const errJson = await apiRes.json().catch(() => null);
+          if (errJson && errJson.error) detail += ` — ${errJson.error}`;
+        }
+        errors.push(`/api/items: ${detail}`);
+      }
     } catch (err) {
-      els.loadNotice.hidden = false;
+      errors.push(`/api/items: ${err.message}`);
     }
+
+    // 2. 로컬 정적 파일 (./items.json) 폴백 시도
+    try {
+      const staticRes = await fetch("./items.json", { cache: "no-store" });
+      const contentType = staticRes.headers.get("content-type") || "";
+      if (staticRes.ok && contentType.includes("application/json")) {
+        const data = await staticRes.json();
+        if (data && Array.isArray(data.items)) {
+          initializeDatabase(data);
+          return;
+        }
+      } else if (!staticRes.ok) {
+        errors.push(`/items.json: HTTP ${staticRes.status}`);
+      }
+    } catch (err) {
+      errors.push(`/items.json: ${err.message}`);
+    }
+
+    if (window.location.protocol !== "file:" && errors.length > 0) {
+      els.loadNoticeText.innerHTML =
+        `원격 R2 데이터를 불러오지 못했습니다:<br/>` +
+        `<code>${escapeHtml(errors.join(" | "))}</code><br/><br/>` +
+        `DarkWood2 GitHub Actions의 R2 업로드 완료 여부 및 Cloudflare Pages의 <code>ICONS_BUCKET</code> 바인딩을 확인하거나, 아래 버튼으로 로컬 <code>items.json</code>을 직접 열어 확인할 수 있습니다.`;
+    }
+    els.loadNotice.hidden = false;
   }
 
   bootstrap();
